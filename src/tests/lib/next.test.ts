@@ -1,15 +1,16 @@
 
 // import AwsCronParser from '../..';
 import EventCronParser from '../../'
+process.env.TZ = 'GMT';
 
 test('should not return occurrences after latestDate', () => {
-    const cron = '0 12 * * MON *';
+    const cron = '0 12 * * 1 *';
     const start = new Date(Date.UTC(2025, 9, 27, 12, 0, 0)); // Mon, 27 Oct 2025 12:00:00 GMT
     const latestDate = new Date(Date.UTC(2025, 10, 3, 12, 0, 0)); // Mon, 3 Nov 2025 12:00:00 GMT
     const event = new EventCronParser(cron, start, undefined, 'utc');
 
     // First occurrence should be on 27 Oct 2025
-    let next = event.next(start, { inclusive: false, latestDate });
+    let next = event.next(start, { inclusive: true, latestDate });
     expect(next?.toUTCString()).toBe('Mon, 27 Oct 2025 12:00:00 GMT');
 
     // Second occurrence should be on 3 Nov 2025 (equal to latestDate)

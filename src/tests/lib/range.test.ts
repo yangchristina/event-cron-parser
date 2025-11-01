@@ -1,7 +1,8 @@
 // // import AwsCronParser from '../..';
 // import EventCronParser from '../..'
 
-import EventCronParser from "../../index";
+import EventCronParser from '../../index';
+process.env.TZ = 'America/Vancouver';
 
 // function testMultipleNext(crons: any[], start: Date, inclusive = false) {
 //     crons.forEach(({ cron, should: theyShouldBe }) => {
@@ -34,18 +35,18 @@ import EventCronParser from "../../index";
 // }
 
 test('test range local #1', () => {
-    const crons = ["0 1 ? * 4,6 * 4800000"]
+    const crons = ['0 1 ? * 4,6 * 4800000'];
 
     const start = 1678089600000;
     const end = 1678690799999;
 
     crons.forEach((cron) => {
-        const cronParser = new EventCronParser(cron, start - 60000, undefined, 'local')
-        let dates = cronParser.range(start, end)
-        const hour = dates[0].getHours()
+        const cronParser = new EventCronParser(cron, start - 60000, undefined, 'local');
+        let dates = cronParser.range(start, end);
+        const hour = dates[0].getHours();
         // logger.debug(cron, { label: `itshouldbe ${hour}: ${dates.map(x=>x.getHours() + ' utc: ' + x.getUTCHours() +';')}` });
         // logger.debug("dates", { label: `itshouldbe ${hour}: ${dates}` });
-        expect(dates.every(d=>d.getHours() === hour)).toBe(true)
+        expect(dates.every((d) => d.getHours() === hour)).toBe(true);
         // expect(dates.every(d=>d.getUTCHours() === hour)).toBe(true)
     });
 });
@@ -70,3 +71,16 @@ test('test range local #1', () => {
 
 //     testMultipleNext(crons, new Date(Date.UTC(2020, 5 - 1, 8, 9, 30, 0, 0)))
 // })
+
+test('test range for provided cron object', () => {
+    const { start, end, cron } = { start: 1761980400000, end: 1762066799999, cron: '0 7 ? * 6,5,4,3,7 * 1800000' };
+    const parser = new EventCronParser(cron, start, end, 'local');
+    const results = parser.range(start, end);
+    expect(Array.isArray(results)).toBe(true);
+    expect(results.length).toBeGreaterThan(0);
+    // Check that all results are within the range
+    results.forEach((date) => {
+        expect(date.getTime()).toBeGreaterThanOrEqual(start);
+        expect(date.getTime()).toBeLessThanOrEqual(end);
+    });
+});

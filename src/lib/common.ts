@@ -11,30 +11,43 @@ const isWeekday = (year: number, month: number, day: number): boolean => {
     return thisDate.getDay() > 0 && thisDate.getDay() < 6;
 };
 
-export const getDaysOfMonthFromDaysOfWeek = (year: number, month: number, daysOfWeek: ParsedRule) => {
+export const getDaysOfMonthFromDaysOfWeek = (
+    year: number,
+    month: number,
+    daysOfWeek: ParsedRule,
+    { latestDate }: { latestDate?: Date } = {},
+) => {
     const daysOfMonth = [];
     let index = 0; // only for "#" use case
-    for (let i = 1; i <= 31; i += 1) {
-        const thisDate = new Date(year, month - 1, i);
-        // already after last day of month
-        if (thisDate.getMonth() !== month - 1) {
-            break;
-        }
+    // Find the last day of the month with a single Date object
+    const lastDayDate = new Date(year, month, 0); // day 0 of next month is last day of this month
+    let lastDay = lastDayDate.getDate();
+    if (latestDate && latestDate.getTime() < lastDayDate.getTime()) {
+        lastDay = latestDate.getDate();
+    }
+    // Reuse a single Date object for iteration
+    const thisDate = new Date(year, month - 1, 1);
+    for (let i = 1; i <= lastDay; i += 1) {
+        thisDate.setDate(i);
+        const dayOfWeek = thisDate.getDay() + 1;
         if (daysOfWeek[0] === 'L') {
-            if (daysOfWeek[1] === thisDate.getDay() + 1) {
-                const sameDayNextWeek = new Date(thisDate.getTime() + 7 * 24 * 3600000);
-                if (sameDayNextWeek.getMonth() !== thisDate.getMonth()) {
+            if (daysOfWeek[1] === dayOfWeek) {
+                // Check if same day next week is in next month
+                thisDate.setDate(i + 7);
+                if (thisDate.getMonth() !== month - 1) {
+                    thisDate.setDate(i); // reset
                     return [i];
                 }
+                thisDate.setDate(i); // reset
             }
         } else if (daysOfWeek[0] === '#') {
-            if (daysOfWeek[1] === thisDate.getDay() + 1) {
+            if (daysOfWeek[1] === dayOfWeek) {
                 index += 1;
             }
             if (daysOfWeek[2] === index) {
                 return [i];
             }
-        } else if (daysOfWeek.includes(thisDate.getDay() + 1)) {
+        } else if (daysOfWeek.includes(dayOfWeek)) {
             daysOfMonth.push(i);
         }
     }
@@ -74,11 +87,11 @@ export const arrayFindLast = (a: any[], f: any) => {
 export const adjustDateForDST = (date: Date, parsedCron: ParsedCron, timezone: string) => {
     if (timezone === 'local') {
         // check for difference in daylight savings
-        let offsetDiff = date.getTimezoneOffset() - new Date(parsedCron.start).getTimezoneOffset()
+        let offsetDiff = date.getTimezoneOffset() - new Date(parsedCron.start).getTimezoneOffset();
         if (offsetDiff !== 0) {
-            date.setMinutes(date.getMinutes() + offsetDiff)
-            return offsetDiff
+            date.setMinutes(date.getMinutes() + offsetDiff);
+            return offsetDiff;
         }
     }
-    return 0
-}
+    return 0;
+};

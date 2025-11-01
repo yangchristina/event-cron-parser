@@ -40,7 +40,7 @@ const findOnce = (parsed: ParsedCron, from: Date, iter = 0, options?: FindOnceOp
 
     let pDaysOfMonth = parsed.daysOfMonth;
     if (pDaysOfMonth.length === 0) {
-        pDaysOfMonth = getDaysOfMonthFromDaysOfWeek(year, month, parsed.daysOfWeek);
+        pDaysOfMonth = getDaysOfMonthFromDaysOfWeek(year, month, parsed.daysOfWeek, options);
     } else if (pDaysOfMonth[0] === 'L') {
         pDaysOfMonth = getDaysOfMonthForL(year, month, pDaysOfMonth[1] as number);
     } else if (pDaysOfMonth[0] === 'W') {

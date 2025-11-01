@@ -47,7 +47,7 @@ class EventCronParser {
 
     // if from is given, return next after or equal to from date
     // if from not given, give next after prev, prev is initialized as new Date(0)
-    next(from?: DateInput, inclusive = false) {
+    next(from?: DateInput, { inclusive = false, latestDate }: { inclusive?: boolean, latestDate?: Date } = {}) {
         if (this.#isRateExpression) {
             let nextDate = nextRate(<ParsedRate>this.parsedCron, from || this.#prevDate, inclusive);
             this.#prevDate = nextDate;
@@ -55,11 +55,12 @@ class EventCronParser {
         }
         const cron = this.parsedCron as ParsedCron;
         if (from !== undefined)
-            this.#prevDate = nextCron(cron, new Date(from), cron.duration, { inclusive, tz: this.tz });
+            this.#prevDate = nextCron(cron, new Date(from), cron.duration, { inclusive, tz: this.tz, latestDate });
         // including from
         else if (this.#prevDate)
             this.#prevDate = nextCron(cron, new Date(this.#prevDate.getTime() + cron.duration), cron.duration, {
                 inclusive,
+                latestDate,
                 tz: this.tz,
             }); // !!! not sure if i should be adding duration but seems right in next()?
         return this.#prevDate;
@@ -112,14 +113,15 @@ class EventCronParser {
     // returns all occurences that occur within given interval
     // includes occurances that start
     range(start: DateInput, end: DateInput, inclusive?: boolean) {
-        const first = this.next(new Date(start), inclusive);
+        const endDate = new Date(end);
+        const first = this.next(new Date(start), { inclusive, latestDate: endDate });
         const occurences: Date[] = [];
         if (first === null) return occurences;
         occurences.push(first);
         while (true) {
             // add end to while statement, using at(-1)
-            const occurence = this.next(undefined, inclusive);
-            if (occurence === null || occurences[occurences.length - 1].getTime() >= new Date(end).getTime())
+            const occurence = this.next(undefined, { inclusive, latestDate: endDate });
+            if (occurence === null || occurences[occurences.length - 1].getTime() >= endDate.getTime())
                 return occurences;
             occurences.push(occurence);
         }

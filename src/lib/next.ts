@@ -2,7 +2,12 @@ import { getDaysOfMonthFromDaysOfWeek, getDaysOfMonthForL, getDaysOfMonthForW, a
 import { ParsedCron, ParsedRate } from './parse';
 import { DateInput } from './types';
 
-const findOnce = (parsed: ParsedCron, from: Date, iter = 0): Date | null => {
+
+interface FindOnceOptions {
+    latestDate?: Date;
+}
+
+const findOnce = (parsed: ParsedCron, from: Date, iter = 0, options?: FindOnceOptions): Date | null => {
     if (iter > 10) {
         throw new Error("AwsCronParser : this shouldn't happen, but iter > 10");
     }
@@ -10,11 +15,16 @@ const findOnce = (parsed: ParsedCron, from: Date, iter = 0): Date | null => {
 
     from = getLatestDate(from, parsed.start)
 
-    const cYear = from.getUTCFullYear(); // timezone === 'local' ? from.getFullYear() :
-    const cMonth = from.getUTCMonth() + 1; // timezone === 'local' ? from.getMonth() + 1 :
-    const cDayOfMonth = from.getUTCDate(); // timezone === 'local' ? from.getDate() :
-    const cHour = from.getUTCHours(); // timezone === 'local' ? from.getHours() :
-    const cMinute = from.getUTCMinutes(); // timezone === 'local' ? from.getMinutes() :
+    // Early termination if from is after latestDate
+    if (options?.latestDate && from.getTime() > options.latestDate.getTime()) {
+        return null;
+    }
+
+    const cYear = from.getUTCFullYear();
+    const cMonth = from.getUTCMonth() + 1;
+    const cDayOfMonth = from.getUTCDate();
+    const cHour = from.getUTCHours();
+    const cMinute = from.getUTCMinutes();
 
     const year = find(parsed.years, (c: number) => c >= cYear);
     if (!year) {
@@ -22,9 +32,8 @@ const findOnce = (parsed: ParsedCron, from: Date, iter = 0): Date | null => {
     }
 
     const month = find(parsed.months, (c: number) => c >= (year === cYear ? cMonth : 1));
-    iter > 5 && console.log("month", month, new Date(from), parsed)
     if (!month) {
-        return findOnce(parsed, getDate(year + 1, 1), iter);
+        return findOnce(parsed, getDate(year + 1, 1), iter, options);
     }
 
     const isSameMonth = year === cYear && month === cMonth;
@@ -39,27 +48,26 @@ const findOnce = (parsed: ParsedCron, from: Date, iter = 0): Date | null => {
     }
 
     const dayOfMonth = find(pDaysOfMonth, (c: number) => c >= (isSameMonth ? cDayOfMonth : 1));
-    iter > 5 && console.log("dayOfMonth", dayOfMonth, new Date(from))
     if (!dayOfMonth) {
-        return findOnce(parsed, getDate(year, month + 1), iter);
+        return findOnce(parsed, getDate(year, month + 1), iter, options);
     }
 
     const isSameDate = isSameMonth && dayOfMonth === cDayOfMonth;
 
     const hour = find(parsed.hours, (c: number) => c >= (isSameDate ? cHour : 0));
-    iter > 5 && console.log('hour', hour)
     if (typeof hour === 'undefined') {
-        return findOnce(parsed,
-            getDate(year, month, dayOfMonth + 1), iter);
+        return findOnce(parsed, getDate(year, month, dayOfMonth + 1), iter, options);
     }
 
     const minute = find(parsed.minutes, (c: number) => c >= (isSameDate && hour === cHour ? cMinute : 0));
-    iter > 5 && console.log('minute', minute)
     if (typeof minute === 'undefined') {
-        return findOnce(parsed, getDate(year, month, dayOfMonth, hour + 1, minute), iter);
+        return findOnce(parsed, getDate(year, month, dayOfMonth, hour + 1, minute), iter, options);
     }
-    iter > 5 && console.log("found", getDate(year, month, dayOfMonth, hour, minute))
-    return getDate(year, month, dayOfMonth, hour, minute);
+    const result = getDate(year, month, dayOfMonth, hour, minute);
+    if (options?.latestDate && result.getTime() > options.latestDate.getTime()) {
+        return null;
+    }
+    return result;
 };
 
 // function getEarliestDate(date1: Date, date2: Date) {
@@ -91,15 +99,21 @@ function getDate(year = 0, month = 1, dayOfMonth = 1, hour = 0, minute = 0) {
 interface NextCronOptions {
     inclusive?: boolean;
     tz?: 'local' | 'utc';
+    latestDate?: Date;
 }
 
 export function nextCron(parsed: ParsedCron, from: Date, duration: number, options?: NextCronOptions) {
-    const { inclusive = false, tz = 'utc' as 'local' | 'utc' } = options || {}
+    const { inclusive = false, tz = 'utc' as 'local' | 'utc', latestDate } = options || {}
     // iter is just a safety net to prevent infinite recursive calls
     // because I'm not 100% sure this won't happen
 
     const findFrom = (from: Date) => {
-        return findOnce(parsed, new Date(((from.getTime() - duration + (inclusive ? -60000 : 60000)) / 60000) * 60000))
+        return findOnce(
+            parsed,
+            new Date(((from.getTime() - duration + (inclusive ? -60000 : 60000)) / 60000) * 60000),
+            0,
+            { latestDate }
+        )
     }
     let nextOccurence = findFrom(from)
 

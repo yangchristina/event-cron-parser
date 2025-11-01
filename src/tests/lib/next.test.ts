@@ -1,5 +1,25 @@
+
 // import AwsCronParser from '../..';
 import EventCronParser from '../../'
+
+test('should not return occurrences after latestDate', () => {
+    const cron = '0 12 * * MON *';
+    const start = new Date(Date.UTC(2025, 9, 27, 12, 0, 0)); // Mon, 27 Oct 2025 12:00:00 GMT
+    const latestDate = new Date(Date.UTC(2025, 10, 3, 12, 0, 0)); // Mon, 3 Nov 2025 12:00:00 GMT
+    const event = new EventCronParser(cron, start, undefined, 'utc');
+
+    // First occurrence should be on 27 Oct 2025
+    let next = event.next(start, { inclusive: false, latestDate });
+    expect(next?.toUTCString()).toBe('Mon, 27 Oct 2025 12:00:00 GMT');
+
+    // Second occurrence should be on 3 Nov 2025 (equal to latestDate)
+    next = next && event.next(next, { inclusive: false, latestDate });
+    expect(next?.toUTCString()).toBe('Mon, 03 Nov 2025 12:00:00 GMT');
+
+    // Third occurrence should be null (after latestDate)
+    next = next && event.next(next, { inclusive: false, latestDate });
+    expect(next).toBeNull();
+});
 
 function testMultipleNext(crons: any[], start: Date, inclusive = false) {
     crons.forEach(({ cron, should: theyShouldBe }) => {
@@ -7,7 +27,7 @@ function testMultipleNext(crons: any[], start: Date, inclusive = false) {
         let occurence: Date = start;
         theyShouldBe.forEach((itShouldBe: any, i: number) => {
             if (i % 2 == 0) {
-                occurence = event.next(new Date(occurence.getTime()), inclusive) || new Date(0);
+                occurence = event.next(new Date(occurence.getTime()), { inclusive }) || new Date(0);
             } else {
                 occurence = event.next() || new Date(0)
             }
@@ -38,7 +58,7 @@ function testCases(crons: any[], tz: 'utc' | 'local' = 'utc', duration = 0, opti
 
 test('near end timezone shift bug', ()=>{
     const parser = new EventCronParser('0 23 ? * 4 * 3600000', new Date(2023, 8, 1), new Date(2023, 11, 1), 'local')
-    const next = parser.next(new Date(2023, 10, 29, 15, 30), true)
+    const next = parser.next(new Date(2023, 10, 29, 15, 30), { inclusive: true })
     expect(next).toBeTruthy()
 })
 
